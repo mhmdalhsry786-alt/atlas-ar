@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="أتلس">
+<meta name="theme-color" content="#0a0e14">
+<title>أتلس — تشريح جسم الإنسان ثلاثي الأبعاد</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root{
+    --bg:#0a0e14; --bg2:#0f141c; --panel:#141b25; --panel2:#1b2431; --line:#26313f;
+    --txt:#f0f4fa; --dim:#8492a6; --acc:#2fd39a; --acc2:#4d9dff; --gold:#e8c84a; --red:#e05555;
+    --sat:env(safe-area-inset-top); --sab:env(safe-area-inset-bottom);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Arabic","Segoe UI",system-ui,sans-serif;
+    -webkit-user-select:none;user-select:none;overscroll-behavior:none;}
+  canvas{display:block;touch-action:none;}
+  #view{position:fixed;inset:0;}
+
+  /* ══ شريط علوي ══ */
+  #top{position:fixed;top:0;left:0;right:0;z-index:20;
+    padding:calc(var(--sat) + 8px) 12px 8px;display:flex;align-items:center;gap:8px;
+    background:linear-gradient(180deg,rgba(10,14,20,.95),rgba(10,14,20,0));}
+  #brand{font-size:16px;font-weight:800;flex:1;letter-spacing:-.2px;}
+  #brand span{color:var(--acc);}
+  #brand small{display:block;font-size:10px;font-weight:400;color:var(--dim);letter-spacing:.3px;}
+  .ib{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);
+    background:rgba(20,27,37,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    color:var(--txt);display:grid;place-items:center;font-size:16px;padding:0;cursor:pointer;
+    transition:background .15s,transform .1s;}
+  .ib:active{transform:scale(.92);}
+  .ib.on{background:var(--acc);color:#031f15;border-color:var(--acc);}
+
+  /* ══ بحث ══ */
+  #searchWrap{position:fixed;left:10px;right:10px;top:calc(var(--sat) + 54px);z-index:30;display:none;}
+  #searchWrap.show{display:block;}
+  #qbox{display:flex;align-items:center;gap:9px;padding:12px 15px;border-radius:14px;
+    border:1px solid var(--line);background:rgba(20,27,37,.97);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
+  #q{flex:1;background:none;border:0;outline:none;color:var(--txt);font-size:15px;font-family:inherit;}
+  #q::placeholder{color:#5a6879;}
+  #results{max-height:54vh;overflow-y:auto;margin-top:7px;border-radius:14px;
+    background:rgba(20,27,37,.98);border:1px solid var(--line);-webkit-overflow-scrolling:touch;}
+  .res{padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.045);cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .res:last-child{border-bottom:0;}
+  .res:active{background:rgba(47,211,154,.13);}
+  .res b{font-size:13px;font-weight:600;display:block;}
+  .res .en{font-size:10px;color:var(--dim);margin-top:2px;direction:ltr;text-align:right;}
+  .res .tag{font-size:9.5px;color:#031f15;background:var(--acc);padding:3px 8px;border-radius:6px;flex:0 0 auto;font-weight:700;}
+  .empty{padding:18px;text-align:center;color:var(--dim);font-size:12.5px;}
+
+  /* ══ لوحة التحكم السفلية ══ */
+  #dock{position:fixed;left:0;right:0;bottom:0;z-index:22;
+    background:rgba(15,20,28,.96);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+    border-top:1px solid var(--line);border-radius:22px 22px 0 0;
+    padding:9px 12px calc(var(--sab) + 10px);
+    transition:transform .28s cubic-bezier(.32,.9,.32,1);}
+  #dock.down{transform:translateY(calc(100% - 46px));}
+  #dockTop{display:flex;align-items:center;gap:8px;padding-bottom:7px;}
+  #grab{width:34px;height:4px;border-radius:3px;background:#33414f;flex:0 0 auto;cursor:pointer;}
+  #dockLabel{font-size:11px;color:var(--dim);flex:1;}
+
+  /* أزرار الأجهزة */
+  #sysRow{display:flex;gap:7px;overflow-x:auto;padding-bottom:9px;scrollbar-width:none;}
+  #sysRow::-webkit-scrollbar{display:none;}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);
+    color:#9aa8bb;border-radius:12px;padding:9px 13px;font-size:12px;font-family:inherit;
+    display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;
+    transition:all .15s;}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.9;}
+  .chip.on{color:#04140d;border-color:transparent;font-weight:700;box-shadow:0 2px 12px rgba(0,0,0,.35);}
+  .chip.on[data-sys="skeleton"]{background:#e8dcc0;}
+  .chip.on[data-sys="muscular"]{background:#e07575;color:#1a0505;}
+  .chip.on[data-sys="visceral"]{background:#5ec4d8;color:#04181c;}
+  .chip.on[data-sys="cardiovascular"]{background:#d95555;color:#fff;}
+  .chip.on[data-sys="nervous"]{background:#e8c84a;color:#1a1602;}
+  .chip.dim{opacity:.42;}
+
+  /* أدوات */
+  #tools{display:flex;gap:7px;}
+  .tbtn{flex:1;border:1px solid var(--line);background:var(--panel2);color:#aab6c6;
+    border-radius:12px;padding:9px 4px;font-size:10.5px;font-family:inherit;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s;}
+  .tbtn .g{font-size:15px;line-height:1;}
+  .tbtn.on{background:var(--acc);color:#031f15;border-color:var(--acc);font-weight:700;}
+
+  /* ══ بطاقة العضو ══ */
+  #card{position:fixed;left:10px;right:10px;bottom:calc(var(--sab) + 150px);z-index:26;
+    background:rgba(20,27,37,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border:1px solid var(--line);border-radius:16px;padding:14px 16px;
+    display:none;box-shadow:0 12px 40px rgba(0,0,0,.55);}
+  #card.show{display:block;animation:rise .22s ease;}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  #cTop{display:flex;align-items:flex-start;gap:10px;}
+  #cName{font-size:16px;font-weight:800;flex:1;line-height:1.3;}
+  #cSys{font-size:9.5px;padding:4px 9px;border-radius:7px;background:var(--panel2);
+    color:var(--dim);flex:0 0 auto;white-space:nowrap;}
+  #cEn{font-size:11px;color:var(--dim);direction:ltr;text-align:right;margin:3px 0 9px;}
+  #cDesc{font-size:12.5px;color:#c2ccda;line-height:1.7;margin:0;}
+  #cActs{display:flex;gap:8px;margin-top:12px;}
+  #cActs button{flex:1;border:1px solid var(--line);background:var(--panel2);color:var(--txt);
+    border-radius:11px;padding:10px;font-size:12px;font-family:inherit;cursor:pointer;}
+  #cActs button.primary{background:var(--acc);color:#031f15;border-color:var(--acc);font-weight:700;}
+
+  /* ══ شاشة البدء ══ */
+  #gate{position:fixed;inset:0;z-index:100;
+    background:radial-gradient(ellipse at 50% 28%,#121c28,#0a0e14 72%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:16px;padding:28px;text-align:center;}
+  #gate.out{opacity:0;pointer-events:none;transition:opacity .45s;}
+  #logo{width:88px;height:88px;margin-bottom:-4px;}
+  #gate h1{margin:0;font-size:34px;font-weight:800;letter-spacing:-1.2px;}
+  #gate h1 span{color:var(--acc);}
+  #gate .sub{margin:0;color:var(--dim);font-size:13.5px;line-height:1.75;max-width:310px;}
+  #stats{display:flex;gap:22px;margin:8px 0 2px;}
+  #stats div{text-align:center;}
+  #stats b{display:block;font-size:19px;color:var(--acc);font-weight:800;line-height:1.2;}
+  #stats small{font-size:9.5px;color:var(--dim);}
+  #prog{width:min(270px,78vw);height:4px;background:#1c2532;border-radius:3px;overflow:hidden;}
+  #progBar{display:block;height:100%;width:0;border-radius:3px;
+    background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .3s;}
+  #progTxt{font-size:11px;color:var(--dim);min-height:15px;}
+  #go{background:var(--acc);color:#031f15;border:0;border-radius:999px;
+    padding:15px 48px;font-size:15.5px;font-weight:800;font-family:inherit;cursor:pointer;
+    transition:transform .1s,opacity .2s;}
+  #go:active{transform:scale(.96);}
+  #go:disabled{opacity:.4;}
+  #cred{position:absolute;bottom:calc(var(--sab) + 14px);left:20px;right:20px;
+    font-size:9.5px;color:#3a4655;line-height:1.6;}
+
+  /* ══ مؤشر تحميل عائم ══ */
+  #badge{position:fixed;top:calc(var(--sat) + 56px);left:50%;transform:translateX(-50%);
+    z-index:32;background:rgba(20,27,37,.95);border:1px solid var(--line);
+    border-radius:999px;padding:8px 15px;font-size:11px;color:var(--acc);
+    display:none;align-items:center;gap:8px;white-space:nowrap;max-width:88vw;}
+  #badge.show{display:flex;}
+  .spin{width:11px;height:11px;border:2px solid rgba(47,211,154,.25);
+    border-top-color:var(--acc);border-radius:50%;animation:sp .7s linear infinite;flex:0 0 auto;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  /* ══ شريط معلومات سفلي ══ */
+  #hud{position:fixed;top:calc(var(--sat) + 52px);right:12px;z-index:19;
+    font-size:10px;color:#4a5768;text-align:left;direction:ltr;line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="view"></div>
+
+<div id="hud"></div>
+
+<div id="top">
+  <button class="ib" id="btnSearch" aria-label="بحث">⌕</button>
+  <div id="brand">أت<span>لس</span><small>تشريح ثلاثي الأبعاد</small></div>
+  <button class="ib" id="btnView" aria-label="إعادة الضبط">⟲</button>
+</div>
+
+<div id="searchWrap">
+  <div id="qbox">
+    <span style="color:#5a6879;font-size:15px">⌕</span>
+    <input id="q" type="search" placeholder="ابحث عن عضو… قلب، Femur، Liver" autocomplete="off" spellcheck="false">
+    <button class="ib" id="qClose" style="width:30px;height:30px;font-size:13px">✕</button>
+  </div>
+  <div id="results"></div>
+</div>
+
+<div id="badge"><div class="spin"></div><span id="badgeTxt">يُحمّل…</span></div>
+
+<div id="card">
+  <div id="cTop">
+    <div id="cName">—</div>
+    <div id="cSys">—</div>
+  </div>
+  <div id="cEn">—</div>
+  <p id="cDesc"></p>
+  <div id="cActs">
+    <button id="cIso" class="primary">إفراد العضو</button>
+    <button id="cClose">رجوع</button>
+  </div>
+</div>
+
+<div id="dock">
+  <div id="dockTop">
+    <div id="grab"></div>
+    <div id="dockLabel">الأجهزة — اضغط لإخفاء/إظهار</div>
+  </div>
+  <div id="sysRow">
+    <button class="chip" data-sys="skeleton"><i class="dot"></i>العظام</button>
+    <button class="chip" data-sys="muscular"><i class="dot"></i>العضلات</button>
+    <button class="chip" data-sys="visceral"><i class="dot"></i>الأحشاء</button>
+    <button class="chip" data-sys="cardiovascular"><i class="dot"></i>القلب والأوعية</button>
+    <button class="chip" data-sys="nervous"><i class="dot"></i>الأعصاب</button>
+  </div>
+  <div id="tools">
+    <button class="tbtn" id="tSpin"><span class="g">◎</span>دوران</button>
+    <button class="tbtn" id="tXray"><span class="g">◍</span>أشعة</button>
+    <button class="tbtn" id="tReset"><span class="g">⤢</span>ملء الشاشة</button>
+    <button class="tbtn" id="tHide"><span class="g">▾</span>إخفاء</button>
+  </div>
+</div>
+
+<div id="gate">
+  <svg id="logo" viewBox="0 0 100 100" fill="none">
+    <circle cx="50" cy="50" r="46" stroke="#2fd39a" stroke-width="2.5" opacity=".35"/>
+    <circle cx="50" cy="26" r="11" stroke="#2fd39a" stroke-width="3"/>
+    <path d="M50 37v30" stroke="#2fd39a" stroke-width="3" stroke-linecap="round"/>
+    <path d="M32 46h36M34 56h32M38 66h24" stroke="#2fd39a" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>
+    <path d="M42 67l-5 20M58 67l5 20" stroke="#2fd39a" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  </svg>
+  <h1>أت<span>لس</span></h1>
+  <p class="sub">جسم الإنسان كاملًا — ثلاثة أبعاد، بلا إنترنت، على جهازك.</p>
+  <div id="stats">
+    <div><b id="sN">—</b><small>عضوًا</small></div>
+    <div><b>5</b><small>أجهزة</small></div>
+    <div><b>0</b><small>سيرفر</small></div>
+  </div>
+  <div id="prog"><i id="progBar"></i></div>
+  <div id="progTxt">يُحضّر…</div>
+  <div id="swState" style="font-size:11px;color:#8492a6;min-height:15px"></div>
+  <button id="go" disabled>ابدأ</button>
+  <div id="cred">نماذج تشريح مفتوحة المصدر · CC BY-SA 4.0 · Z-Anatomy / BodyParts3D<br>يعمل بلا إنترنت بعد أول تحميل</div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"./vendor/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from './vendor/three.module.js';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+import { DRACOLoader } from './vendor/DRACOLoader.js';
+
+/* ═══════════════════════════════════════════
+   ١) تعريف الأجهزة
+   ═══════════════════════════════════════════ */
+const SYSTEMS = [
+  {id:"skeleton",       file:"models/skeleton.glb",       color:0xE9DEC4, ar:"العظام",        en:"Skeletal"},
+  {id:"muscular",       file:"models/muscular.glb",       color:0xDE7B7B, ar:"العضلات",       en:"Muscular"},
+  {id:"visceral",       file:"models/visceral.glb",       color:0x62C6D8, ar:"الأحشاء",       en:"Visceral"},
+  {id:"cardiovascular", file:"models/cardiovascular.glb", color:0xD05757, ar:"القلب والأوعية", en:"Cardiovascular"},
+  {id:"nervous",        file:"models/nervous.glb",        color:0xE9CB52, ar:"الأعصاب",       en:"Nervous"},
+];
+
+const isLite = new URLSearchParams(location.search).has("lite");
+
+const S = {
+  renderer:null, scene:null, camera:null,
+  sets:{},               // id → {root, meshes[]}
+  visible:{skeleton:true,muscular:true,visceral:true,cardiovascular:true,nervous:true},
+  names:{},              // id → [{en,ar}]
+  index:[],              // بحث
+  selected:null, isolated:null, spin:false, xray:false, ready:false,
+  ptr:new THREE.Vector2(), ray:new THREE.Raycaster()
+};
+const $ = s => document.querySelector(s);
+
+/* ═══════════════════════════════════════════
+   ٢) كاميرا ومشهد
+   ═══════════════════════════════════════════ */
+const CAM = {theta:0, phi:Math.PI/2, dist:1500, tTheta:0, tPhi:Math.PI/2, tDist:1500,
+             target:new THREE.Vector3()};
+
+function initScene(){
+  const host = $("#view");
+  const r = new THREE.WebGLRenderer({antialias:!isLite, powerPreference:"high-performance"});
+  r.setPixelRatio(Math.min(devicePixelRatio||1, isLite?1.25:2));
+  r.setSize(innerWidth, innerHeight);
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  host.appendChild(r.domElement);
+  S.renderer = r;
+
+  const sc = new THREE.Scene();
+  sc.background = new THREE.Color(0x0a0e14);
+  S.scene = sc;
+
+  const cam = new THREE.PerspectiveCamera(36, innerWidth/innerHeight, 1, 20000);
+  S.camera = cam;
+
+  sc.add(new THREE.HemisphereLight(0xcfe0ff, 0x101820, 1.15));
+  const k1 = new THREE.DirectionalLight(0xffffff, 2.0); k1.position.set(700, 1000, 1400);
+  const k2 = new THREE.DirectionalLight(0x9dc0ff, 0.9);  k2.position.set(-1000, 300, 500);
+  const k3 = new THREE.DirectionalLight(0x2fd39a, 0.5);  k3.position.set(0, -700, -1100);
+  sc.add(k1,k2,k3);
+
+  bindCamera(r.domElement);
+
+  addEventListener("resize", ()=>{
+    cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix();
+    r.setSize(innerWidth, innerHeight);
+    if(S.ready && !S.isolated) fit();
+  });
+  loop();
+}
+
+function bindCamera(dom){
+  let drag=false, lx=0, ly=0, downX=0, downY=0, downT=0;
+  dom.addEventListener("pointerdown", e=>{
+    drag=true; lx=e.clientX; ly=e.clientY;
+    downX=e.clientX; downY=e.clientY; downT=performance.now();
+    try{dom.setPointerCapture(e.pointerId);}catch(_){}
+  });
+  dom.addEventListener("pointermove", e=>{
+    if(!drag) return;
+    CAM.tTheta -= (e.clientX-lx)*0.0058;
+    CAM.tPhi = Math.max(0.12, Math.min(Math.PI-0.12, CAM.tPhi-(e.clientY-ly)*0.0058));
+    lx=e.clientX; ly=e.clientY;
+  });
+  dom.addEventListener("pointerup", e=>{
+    if(!drag) return; drag=false;
+    const moved = Math.hypot(e.clientX-downX, e.clientY-downY);
+    if(moved < 10 && performance.now()-downT < 350) pick(e.clientX, e.clientY);
+  });
+  dom.addEventListener("pointercancel", ()=>{drag=false;});
+  dom.addEventListener("wheel", e=>{
+    e.preventDefault();
+    CAM.tDist = clamp(CAM.tDist*(1+Math.sign(e.deltaY)*0.13), 120, 6000);
+  }, {passive:false});
+
+  let pinch=null;
+  dom.addEventListener("touchstart", e=>{
+    if(e.touches.length===2)
+      pinch = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                         e.touches[0].clientY-e.touches[1].clientY);
+  }, {passive:true});
+  dom.addEventListener("touchmove", e=>{
+    if(e.touches.length===2 && pinch){
+      const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
+                           e.touches[0].clientY-e.touches[1].clientY);
+      CAM.tDist = clamp(CAM.tDist*(pinch/d), 120, 6000);
+      pinch = d;
+    }
+  }, {passive:true});
+  dom.addEventListener("touchend", ()=>{pinch=null;});
+}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function loop(){
+  requestAnimationFrame(loop);
+  CAM.theta += (CAM.tTheta-CAM.theta)*0.15;
+  CAM.phi   += (CAM.tPhi  -CAM.phi  )*0.15;
+  CAM.dist  += (CAM.tDist -CAM.dist )*0.15;
+  if(S.spin) CAM.tTheta += 0.0055;
+
+  const s = Math.sin(CAM.phi);
+  S.camera.position.set(
+    CAM.target.x + CAM.dist*s*Math.sin(CAM.theta),
+    CAM.target.y + CAM.dist*Math.cos(CAM.phi),
+    CAM.target.z + CAM.dist*s*Math.cos(CAM.theta)
+  );
+  S.camera.lookAt(CAM.target);
+  S.renderer.render(S.scene, S.camera);
+}
+
+/* ═══════════════════════════════════════════
+   ٣) تحميل النماذج
+   ═══════════════════════════════════════════ */
+function cleanName(n){
+  return (n||"").replace(/\.(j|g|r|l|t)\.\d{3}$/i,"").replace(/\.\d{3}$/,"")
+                .replace(/_/g," ").trim();
+}
+
+async function loadAll(){
+  const draco = new DRACOLoader();
+  draco.setDecoderPath("./vendor/draco/");
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(draco);
+
+  // قائمة الأسماء العربية
+  let nameMap = {};
+  try{
+    const r = await fetch("names.json");
+    if(r.ok){ const j = await r.json(); S.names = j.systems || {}; }
+  }catch(_){}
+
+  const bar = $("#progBar"), txt = $("#progTxt"), badge = $("#badge");
+  const N = SYSTEMS.length;
+  let done = 0, totalMeshes = 0;
+
+  for(const sys of SYSTEMS){
+    txt.textContent = `يُحمّل: ${sys.ar}…`;
+    badge.classList.add("show");
+    $("#badgeTxt").textContent = `${sys.ar}…`;
+    try{
+      const gltf = await loader.loadAsync(sys.file, ev=>{
+        if(ev.lengthComputable){
+          bar.style.width = (((done + ev.loaded/ev.total)/N)*100).toFixed(1)+"%";
+        }
+      });
+      const meshes = [];
+      gltf.scene.traverse(o=>{
+        if(!o.isMesh) return;
+        // احذف لافتات النصوص المسطّحة المدمجة في النموذج
+        if(/system/i.test(o.name||"") && o.geometry){
+          const g=o.geometry;
+          if(!g.boundingBox) g.computeBoundingBox();
+          const bb=g.boundingBox;
+          const dims=[bb.max.x-bb.min.x, bb.max.y-bb.min.y, bb.max.z-bb.min.z].sort((a,b)=>a-b);
+          if(dims[0] < Math.max(...dims)*0.05){ o.visible=false; o.userData.isLabel=true; return; }
+        }
+        o.userData.sys = sys.id;
+        o.userData.en = cleanName(o.name);
+        o.userData.ar = arabicOf(sys.id, o.userData.en);
+        if(o.material){
+          o.material.side = THREE.DoubleSide;
+          if(o.material.color) o.material.color.setHex(sys.color);
+          o.material.roughness = 0.6; o.material.metalness = 0.05;
+          o.material.transparent = true;
+          o.material.opacity = 1;
+        }
+        if(o.userData.isLabel) return;
+        meshes.push(o);
+      });
+      S.scene.add(gltf.scene);
+      S.sets[sys.id] = {root:gltf.scene, meshes};
+      totalMeshes += meshes.length;
+    }catch(e){
+      console.warn("فشل تحميل", sys.id, e && e.message);
+      S.visible[sys.id] = false;
+      const chip = document.querySelector(`.chip[data-sys="${sys.id}"]`);
+      if(chip){ chip.classList.remove("on"); chip.classList.add("dim"); }
+    }
+    done++;
+    bar.style.width = (done/N*100).toFixed(1)+"%";
+    await new Promise(r=>setTimeout(r,12));
+  }
+
+  badge.classList.remove("show");
+  buildIndex();
+  fit();
+
+  $("#sN").textContent = totalMeshes.toLocaleString("en-US");
+  $("#progTxt").textContent = "جاهز";
+  $("#go").disabled = false;
+  S.ready = true;
+}
+
+function arabicOf(sysId, en){
+  const arr = S.names[sysId];
+  if(!arr) return "";
+  const low = en.toLowerCase();
+  for(const it of arr){ if(it.en.toLowerCase()===low && it.ar) return it.ar; }
+  return "";
+}
+
+/* ═══════════════════════════════════════════
+   ٤) فهرس وبحث
+   ═══════════════════════════════════════════ */
+function buildIndex(){
+  S.index.length = 0;
+  for(const id in S.sets){
+    for(const m of S.sets[id].meshes){
+      const en = m.userData.en;
+      if(!en || en.length<2) continue;
+      S.index.push({en, ar:m.userData.ar||"", sys:id, mesh:m,
+                    low:(en+" "+(m.userData.ar||"")).toLowerCase()});
+    }
+  }
+}
+function search(q){
+  q=(q||"").trim().toLowerCase();
+  if(q.length<2) return [];
+  const out=[];
+  for(const it of S.index){
+    if(it.low.includes(q)){ out.push(it); if(out.length>=80) break; }
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════
+   ٥) اختيار
+   ═══════════════════════════════════════════ */
+function pick(cx, cy){
+  if(!S.ready) return;
+  const r = S.renderer.domElement.getBoundingClientRect();
+  S.ptr.x = ((cx-r.left)/r.width)*2-1;
+  S.ptr.y = -((cy-r.top)/r.height)*2+1;
+  S.ray.setFromCamera(S.ptr, S.camera);
+  const targets=[];
+  for(const id in S.sets){ if(!S.visible[id]) continue;
+    for(const m of S.sets[id].meshes) if(m.visible) targets.push(m); }
+  const hit = S.ray.intersectObjects(targets,false);
+  if(!hit.length){ deselect(); return; }
+  select(hit[0].object);
+}
+
+function select(mesh){
+  deselect(true);
+  S.selected = mesh;
+  if(mesh.material && mesh.material.emissive && !S.xray){
+    mesh.userData._em = mesh.material.emissive.getHex();
+    mesh.material.emissive.setHex(0x1d5f42);
+  }
+  const box = new THREE.Box3().setFromObject(mesh);
+  CAM.target.copy(box.getCenter(new THREE.Vector3()));
+
+  const sys = SYSTEMS.find(s=>s.id===mesh.userData.sys);
+  $("#cName").textContent = mesh.userData.ar || mesh.userData.en;
+  $("#cEn").textContent = mesh.userData.ar ? mesh.userData.en : "";
+  $("#cSys").textContent = sys ? sys.ar : "";
+  const sz = box.getSize(new THREE.Vector3());
+  $("#cDesc").textContent =
+    infoOf(mesh.userData.en) ||
+    `من جهاز ${sys?sys.ar:""} — الأبعاد التقريبية ${sz.x.toFixed(0)}×${sz.y.toFixed(0)}×${sz.z.toFixed(0)} وحدة.`;
+  $("#card").classList.add("show");
+  $("#cIso").onclick = ()=>isolate(mesh);
+  $("#cClose").onclick = ()=>{ deselect(); unisolate(); };
+}
+
+function deselect(keepCard){
+  if(S.selected && S.selected.material && S.selected.material.emissive &&
+     S.selected.userData._em != null){
+    S.selected.material.emissive.setHex(S.selected.userData._em);
+    S.selected.userData._em = null;
+  }
+  S.selected = null;
+  if(!keepCard) $("#card").classList.remove("show");
+}
+
+function isolate(mesh){
+  for(const id in S.sets) for(const m of S.sets[id].meshes) m.visible = (m===mesh);
+  mesh.visible = true;
+  const b = new THREE.Box3().setFromObject(mesh);
+  const s = b.getSize(new THREE.Vector3());
+  CAM.target.copy(b.getCenter(new THREE.Vector3()));
+  CAM.tDist = Math.max(s.x,s.y,s.z)*2.9;
+  S.isolated = mesh;
+  $("#card").classList.remove("show");
+}
+function unisolate(){
+  if(!S.isolated) return;
+  for(const id in S.sets){
+    const v = S.visible[id];
+    for(const m of S.sets[id].meshes) m.visible = v;
+  }
+  S.isolated = null;
+  fit();
+}
+function fit(){
+  S.scene.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  for(const id in S.sets) if(S.visible[id]) box.expandByObject(S.sets[id].root);
+  if(box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  const ctr  = box.getCenter(new THREE.Vector3());
+
+  // المسافة اللازمة لاحتواء الجسم كاملًا في زاويتي الرؤية (رأسي وأفقي)
+  // اضبط مستويي القطع بحسب الحجم الفعلي (سبب اقتطاع الجسم سابقًا)
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if(maxDim > 0){
+    S.camera.near = maxDim/500;
+    S.camera.far  = maxDim*60;
+    S.camera.updateProjectionMatrix();
+  }
+
+  const fovV = S.camera.fov * Math.PI/180;
+  const aspect = S.camera.aspect || 1;
+  const halfH = size.y/2;
+  const halfW = Math.max(size.x, size.z)/2;
+  const dH = halfH / Math.tan(fovV/2);
+  const dW = halfW / (Math.tan(fovV/2) * aspect);
+  // الهامش العلوي/السفلي: الشريط السفلي يشغل ~150px من 780
+  // الشريط السفلي (~150px) والعلوي (~60px) يأكلان جزءًا من الشاشة
+  const visH = Math.max(0.55, (innerHeight - 210) / innerHeight);
+  const uiPad = 1.0 / visH;
+  let d = Math.max(dH, dW) * uiPad * 0.98;
+
+  CAM.target.copy(ctr);
+  CAM.tDist = CAM.dist = d;
+  CAM.tTheta = CAM.theta = 0;
+  CAM.tPhi = CAM.phi = Math.PI/2;
+  $("#hud").textContent = `${size.y.toFixed(1)}u · ${Math.round(d)}`;
+}
+
+/* معلومات تشريحية للشائع */
+const INFO = {
+ "heart":"عضلة مجوّفة تضخّ الدم إلى الجسم كله. تقع في وسط الصدر مائلة إلى اليسار، بحجم قبضة اليد.",
+ "left lung":"الرئة اليسرى — أصغر من اليمنى لأن القلب يشغل جزءًا من الحيز، ولها فصّان لا ثلاثة.",
+ "right lung":"الرئة اليمنى — ثلاثة فصوص، أكبر من اليسرى قليلًا.",
+ "liver":"أكبر غدة في الجسم (≈1.5 كجم). تُنقّي الدم، وتنتج العصارة الصفراوية، وتخزّن الجليكوجين.",
+ "stomach":"كيس عضلي على شكل هلال. يهضم الطعام بحمض الهيدروكلوريك والإنزيمات، ويتسع ≈1.5 لتر.",
+ "femur":"عظم الفخذ — أطول وأقوى عظم في الجسم. يتحمل ضغطًا يعادل 30 مرة وزن الجسم.",
+ "brain":"مركز الجهاز العصبي: يتحكم في الحركة، الإحساس، الذاكرة، واللغة. يستهلك 20% من الأكسجين.",
+ "aorta":"أكبر شريان في الجسم. يخرج من البطين الأيسر ويوزّع الدم المؤكسج على كل الأعضاء.",
+ "kidney":"عضو على شكل حبة الفاصولياء. يُرشّح ≈180 لترًا من الدم يوميًا لينتج ≈1.5 لتر بول.",
+ "biceps brachii":"عضلة ذات رأسين في مقدمة الذراع. تثني مفصل الكوع وتُدوّر الساعد.",
+ "patella":"الرضفة — عظمة صغيرة تحمي مقدمة مفصل الركبة وتزيد قوة العضلة الرباعية.",
+ "diaphragm":"الحجاب الحاجز — العضلة الرئيسية للتنفس، تفصل الصدر عن البطن.",
+ "trachea":"القصبة الهوائية — أنبوب غضروفي ينقل الهواء من الحنجرة إلى الشعب الهوائية.",
+ "esophagus":"المريء — أنبوب عضلي يدفع الطعام من البلعوم إلى المعدة بالحركة الدودية.",
+ "pancreas":"البنكرياس — غدة خلف المعدة: تُفرز الأنسولين وتُنتج إنزيمات الهضم.",
+ "spleen":"الطحال — يرشّح الدم، يزيل كريات الدم الحمراء الهرمة، ويشارك في المناعة.",
+ "thyroid":"الغدة الدرقية — في مقدمة الرقبة، تفرز هرمونات تنظيم الأيض.",
+ "spinal cord":"الحبل الشوكي — حزمة أعصاب داخل العمود الفقري، تنقل الإشارات بين الدماغ والجسم.",
+ "cerebellum":"المخيخ — ينسّق الحركة والتوازن والتعلّم الحركي.",
+ "humerus":"عظم العضد — عظم الذراع العلوي بين الكتف والكوع.",
+ "scapula":"لوح الكتف — عظم مثلثي على ظهر الصدر، يربط العضد بالترقوة.",
+ "clavicle":"الترقوة — عظم طويل أفقي، من أكثر العظام عرضة للكسر.",
+ "sternum":"القص — عظم مسطح في وسط الصدر تتصل به الأضلاع.",
+ "sciatic nerve":"العصب الوركي — أطول وأسمك عصب في الجسم، يمتد من الحوض إلى القدم.",
+ "optic nerve":"العصب البصري — ينقل الصور من الشبكية إلى الدماغ.",
+ "vagus nerve":"العصب المبهم — أطول عصب قحفي، ينظّم القلب والهضم.",
+ "coronary artery":"الشريان التاجي — يغذّي عضلة القلب نفسها. انسداده سبب الجلطة.",
+ "carotid artery":"الشريان السباتي — يغذّي الدماغ والوجه، في جانبي الرقبة.",
+ "femoral artery":"الشريان الفخذي — الشريان الرئيسي للطرف السفلي.",
+ "gluteus maximus":"العضلة الألوية الكبرى — أكبر عضلة في الجسم، تبسط الفخذ.",
+ "deltoid":"العضلة الدالية — تغطي الكتف وترفع الذراع إلى الجانب.",
+ "trapezius":"العضلة شبه المنحرفة — مثلثة الشكل، ترفع الكتف وتُدير الرقبة.",
+ "rectus abdominis":"العضلة المستقيمة البطنية — «عضلات البطن الستة»، تثني الجذع.",
+ "gastrocnemius":"العضلة التوأمية — تكوّن بروز السمانة، تدفع القدم للأسفل.",
+ "soleus":"العضلة النعلية — تحت التوأمية، مهمة للوقوف الطويل.",
+ "masseter":"العضلة الماضغة — من أقوى العضلات نسبةً لحجمها، ترفع الفك السفلي.",
+ "pectoralis major":"العضلة الصدرية الكبرى — تجذب الذراع إلى الجسم وتُدوّرها.",
+ "latissimus dorsi":"العضلة الظهرية العريضة — أوسع عضلة في الجسم، تسحب الذراع للخلف والأسفل.",
+ "small intestine":"الأمعاء الدقيقة — ≈6 أمتار، معظم امتصاص الغذاء يحدث فيها.",
+ "large intestine":"الأمعاء الغليظة — تمتص الماء وتشكّل الفضلات.",
+ "gallbladder":"المرارة — كيس صغير تحت الكبد يخزّن العصارة الصفراوية.",
+ "adrenal gland":"الغدة الكظرية — فوق الكلية، تفرز الكورتيزول والأدرينالين.",
+ "urinary bladder":"المثانة — كيس عضلي يخزّن البول.",
+ "larynx":"الحنجرة — عضو الصوت، فيه الحبال الصوتية.",
+ "pharynx":"البلعوم — ممر مشترك للهواء والطعام خلف الأنف والفم.",
+};
+function infoOf(en){
+  const l=(en||"").toLowerCase();
+  for(const k in INFO) if(l.includes(k)) return INFO[k];
+  return null;
+}
+
+/* ═══════════════════════════════════════════
+   ٦) الواجهة
+   ═══════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   تسجيل Service Worker — العمل بلا إنترنت
+   ═══════════════════════════════════════════ */
+const SW = {state:"unknown"};
+function swBadge(txt, cls){
+  const el = document.getElementById("swState");
+  if(!el) return;
+  el.textContent = txt;
+  el.style.color = cls==="ok" ? "#2fd39a" : (cls==="warn" ? "#ffb454" : "#8492a6");
+}
+async function registerSW(){
+  if(!("serviceWorker" in navigator)){ SW.state="unsupported"; return; }
+  if(location.protocol!=="https:" && !["localhost","127.0.0.1"].includes(location.hostname)){
+    SW.state="unsupported"; return;
+  }
+  try{
+    await navigator.serviceWorker.register("sw.js", {scope:"./"});
+    const reg = await navigator.serviceWorker.ready;
+    SW.state = (reg && reg.active) ? "ready" : "registering";
+    swBadge(SW.state==="ready" ? "✓ محفوظ — يعمل بلا إنترنت" : "يُحضّر…",
+            SW.state==="ready" ? "ok" : "");
+  }catch(e){
+    SW.state="failed";
+    swBadge("تعذّر الحفظ للعمل بلا إنترنت", "warn");
+  }
+}
+
+function bindUI(){
+  // أجهزة
+  document.querySelectorAll(".chip").forEach(ch=>{
+    ch.classList.toggle("on", !!S.visible[ch.dataset.sys]);
+    ch.onclick = ()=>{
+      const id = ch.dataset.sys;
+      if(!S.sets[id]) return;
+      S.visible[id] = !S.visible[id];
+      ch.classList.toggle("on", S.visible[id]);
+      for(const m of S.sets[id].meshes) m.visible = S.visible[id];
+    };
+  });
+
+  // بحث
+  const wrap = $("#searchWrap"), q = $("#q");
+  $("#btnSearch").onclick = ()=>{
+    wrap.classList.toggle("show");
+    if(wrap.classList.contains("show")) setTimeout(()=>q.focus(),90);
+  };
+  $("#qClose").onclick = ()=>{ wrap.classList.remove("show"); q.blur(); };
+  q.addEventListener("input", ()=>{
+    const box = $("#results");
+    const res = search(q.value);
+    box.innerHTML = "";
+    if(!q.value.trim()) return;
+    if(!res.length){ box.innerHTML = '<div class="empty">لا نتائج</div>'; return; }
+    for(const it of res.slice(0,50)){
+      const sys = SYSTEMS.find(s=>s.id===it.sys);
+      const d = document.createElement("div");
+      d.className = "res";
+      d.innerHTML = `<div><b>${it.ar || it.en}</b>${it.ar?`<div class="en">${it.en}</div>`:""}</div>
+                     <span class="tag">${sys?sys.ar:""}</span>`;
+      d.onclick = ()=>{
+        wrap.classList.remove("show"); q.blur();
+        if(!S.visible[it.sys]){
+          S.visible[it.sys] = true;
+          document.querySelector(`.chip[data-sys="${it.sys}"]`).classList.add("on");
+          for(const m of S.sets[it.sys].meshes) m.visible = true;
+        }
+        unisolate();
+        select(it.mesh);
+      };
+      box.appendChild(d);
+    }
+  });
+
+  // أدوات
+  const tSpin = $("#tSpin");
+  tSpin.onclick = ()=>{ S.spin=!S.spin; tSpin.classList.toggle("on",S.spin); };
+
+  const tX = $("#tXray");
+  tX.onclick = ()=>{
+    S.xray = !S.xray; tX.classList.toggle("on", S.xray);
+    for(const id in S.sets){
+      const base = id==="skeleton" ? 0.22 : 0.42;
+      for(const m of S.sets[id].meshes){
+        if(!m.material) continue;
+        m.material.opacity = S.xray ? base : 1;
+        m.material.transparent = true;
+        m.material.depthWrite = !S.xray;
+      }
+    }
+  };
+
+  $("#tReset").onclick = ()=>{ deselect(); unisolate(); fit(); };
+
+  const tHide = $("#tHide"), dock = $("#dock");
+  const toggleDock = ()=>{
+    dock.classList.toggle("down");
+    const isDown = dock.classList.contains("down");
+    $("#tHide") && (tHide.querySelector(".g").textContent = isDown ? "▴" : "▾");
+  };
+  tHide.onclick = toggleDock;
+  $("#grab").onclick = toggleDock;
+
+  $("#btnView").onclick = ()=>{ deselect(); unisolate(); fit(); };
+
+  // شاشة البدء
+  $("#go").onclick = ()=>{
+    registerSW();               // يبدأ الحفظ للعمل بلا إنترنت
+    const g = $("#gate");
+    g.classList.add("out");
+    setTimeout(()=>g.style.display="none", 460);
+  };
+
+  addEventListener("keydown", e=>{
+    if(e.key==="Escape"){ wrap.classList.remove("show"); deselect(); unisolate(); }
+  });
+}
+
+/* ═══════════════════════════════════════════
+   ٧) تشغيل
+   ═══════════════════════════════════════════ */
+window.__S = S; window.__T = THREE; window.__CAM = CAM;
+
+(async function boot(){
+  bindUI();
+  initScene();
+  await loadAll();
+})();
+</script>
+</body>
+</html>
