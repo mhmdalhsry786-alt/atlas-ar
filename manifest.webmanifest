@@ -1,0 +1,14 @@
+{
+  "name": "أتلس — تشريح ثلاثي الأبعاد",
+  "short_name": "أتلس",
+  "description": "تشريح جسم الإنسان ثلاثي الأبعاد يعمل بلا إنترنت داخل Safari.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07090d",
+  "theme_color": "#07090d",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
